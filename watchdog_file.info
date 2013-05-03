@@ -1,1 +1,9 @@
-name = Watchdog File
+name = "Watchdog File"
+description = "Write watchdog events to a local flat file. Use as a replacement for the Database Logging (dblog) module."
+package = "Logging"
+
+core = 7.x
+
+version = "7.x-1.0"
+
+

@@ -1,0 +1,48 @@
+<?php
+/**
+ * @file
+ * Write Watchdog events to a local file.
+ *
+ * This is a replacement for the dblog module, for performance-sensitive sites.
+
+ /**
+  * Implements hook_watchdog().
+  */
+function watchdog_file_watchdog(array $log_entry) {
+  // Items to ignore...
+  if ($log_entry['type'] === 'expire') {
+    if ($log_entry['severity'] === WATCHDOG_NOTICE) {
+      return;
+    }
+  }
+
+  #dpm($log_entry, 'the watchdog entry');
+  $levels = watchdog_severity_levels();
+
+  $user  = (isset($log_entry['uid']) && (int) $log_entry['uid'] > 0) ? $log_entry['user']->name : 'anon';
+  $user .= ' ' . $log_entry['ip'];
+
+  $message_vars = $log_entry['variables'];
+  if (!is_array($message_vars)) {
+    $message_vars = array();
+  };
+
+  $record = array(
+    '[' . date('Y-m-d H:i:s', $log_entry['timestamp']) . ']',
+    '[' . $levels[$log_entry['severity']] . ']',
+    '[' . $log_entry['type'] . ']',
+    '[uid=' . $log_entry['uid'] . ']',
+    '[' . $user . ']',
+    strip_tags(t($log_entry['message'], $message_vars)),
+    'uri=' . $log_entry['request_uri'],
+    'referer=' . $log_entry['referer'], 
+    'link=' . $log_entry['link'], 
+  );
+
+  
+  $file = variable_get('watchdog_file_filename', '/tmp/watchdog.log');
+  $data = implode("\t", $record);
+  $data = str_replace('&gt;', '>', $data);
+  $data = str_replace('&lt;', '<', $data);
+  file_put_contents($file, $data . "\n", FILE_APPEND);
+}
