@@ -4,19 +4,89 @@
  * Write Watchdog events to a local file.
  *
  * This is a replacement for the dblog module, for performance-sensitive sites.
+ */
+
+
+/**
+ * Define the variable where we store the path/filename of the log file.
+ */
+define('WATCHDOG_FILE_VAR_FILENAME', 'watchdog_file_filename');
+
+/**
+ * Define the variable where we store the timestamp date format.
+ */
+define('WATCHDOG_FILE_VAR_DATE_FORMAT', 'watchdog_file_date_format');
+define('WATCHDOG_FILE_DEFAULT_DATE_FORMAT', 'Y-m-d H:i:s');
+
+/**
+ * Define the log file format.
+ */
+define('WATCHDOG_FILE_VAR_LOG_FORMAT', 'watchdog_file_log_format');
+define('WATCHDOG_FILE_DEFAULT_LOG_FORMAT', "[%date]\t[%severity]\t[%type]\t[uid=%uid]\t[%user]\t%message\turi=%uri\treferer=%referer\tlink=%link");
+
+
+/**
+ * Implements hook_menu().
+ */
+function watchdog_file_menu() {
+  $items = array();
+
+  $items['admin/config/system/watchdog-file'] = array(
+    'title'             => 'Watchdog File',
+    'description'       => 'Configuration for Watchdog File.',
+    'page callback'     => 'drupal_get_form',
+    'page arguments'    => array('watchdog_file_admin_settings'),
+    'access arguments'  => array('administer site configuration'),
+    'type'              => MENU_NORMAL_ITEM,
+    'file'              => 'watchdog_file.admin.inc',
+  );
+
+  return $items;
+}
+
 
  /**
   * Implements hook_watchdog().
   */
 function watchdog_file_watchdog(array $log_entry) {
   // Items to ignore...
+  // @todo make this configurable
   if ($log_entry['type'] === 'expire') {
     if ($log_entry['severity'] === WATCHDOG_NOTICE) {
       return;
     }
   }
 
-  #dpm($log_entry, 'the watchdog entry');
+  watchdog_file_write_record($log_entry);
+}
+
+
+
+/**
+ * Write a watchdog entry to the log file.
+ */
+function watchdog_file_write_record($record) {
+  $success = FALSE;
+
+  $file = variable_get(WATCHDOG_FILE_VAR_FILENAME, '');
+  if (watchdog_file_is_writable($file)) {
+    $data     = watchdog_file_render_record($record);
+    $success  = file_put_contents($file, $data . "\n", FILE_APPEND);
+  }
+
+  if ($success === FALSE) {
+    drupal_set_message(t("Error writing to watchdog_file log."), 'error');
+  }
+
+  return $success;
+}
+
+
+/**
+ * Given a watchdog event record, format it for writing to the watchdog_file
+ * log file.
+ */
+function watchdog_file_render_record($log_entry) {
   $levels = watchdog_severity_levels();
 
   $user  = (isset($log_entry['uid']) && (int) $log_entry['uid'] > 0) ? $log_entry['user']->name : 'anon';
@@ -27,22 +97,42 @@ function watchdog_file_watchdog(array $log_entry) {
     $message_vars = array();
   };
 
-  $record = array(
-    '[' . date('Y-m-d H:i:s', $log_entry['timestamp']) . ']',
-    '[' . $levels[$log_entry['severity']] . ']',
-    '[' . $log_entry['type'] . ']',
-    '[uid=' . $log_entry['uid'] . ']',
-    '[' . $user . ']',
-    strip_tags(t($log_entry['message'], $message_vars)),
-    'uri=' . $log_entry['request_uri'],
-    'referer=' . $log_entry['referer'], 
-    'link=' . $log_entry['link'], 
+  $vars = array(
+    '%date'     => date(variable_get(WATCHDOG_FILE_VAR_DATE_FORMAT, WATCHDOG_FILE_DEFAULT_DATE_FORMAT), $log_entry['timestamp']),
+    '%severity' => $levels[$log_entry['severity']],
+    '%type'     => $log_entry['type'],
+    '%uid'      => $log_entry['uid'],
+    '%user'     => $user,
+    '%message'  => strip_tags(t($log_entry['message'], $message_vars)),
+    '%uri'      => $log_entry['request_uri'],
+    '%referer'  => $log_entry['referer'],
+    '%link'     => $log_entry['link'],
   );
 
-  
-  $file = variable_get('watchdog_file_filename', '/tmp/watchdog.log');
-  $data = implode("\t", $record);
+  $template = variable_get(WATCHDOG_FILE_VAR_LOG_FORMAT, WATCHDOG_FILE_DEFAULT_LOG_FORMAT);
+  $data     = strtr($template, $vars);
+
+  // Replace some encoded entities for readability.
   $data = str_replace('&gt;', '>', $data);
   $data = str_replace('&lt;', '<', $data);
-  file_put_contents($file, $data . "\n", FILE_APPEND);
+
+  return $data;
 }
+
+
+
+/**
+ * Check if we're allowed to write to the log file.
+ */
+function watchdog_file_is_writable($file) {
+  // The defined log file doesn't exist yet. Try to create it.
+  if (!file_exists($file)) {
+    if (!touch($file)) {
+      return FALSE;
+    }
+  }
+
+  return is_writable($file);
+}
+
+
