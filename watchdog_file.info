@@ -1,6 +1,6 @@
 name = "Watchdog File"
 description = "Write watchdog events to a local flat file. Use as a replacement for the Database Logging (dblog) module."
-package = "SRD"
+package = "Performance and scalability"
 
 core = 7.x
 

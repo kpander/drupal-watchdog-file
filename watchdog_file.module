@@ -25,25 +25,6 @@ define('WATCHDOG_FILE_VAR_LOG_FORMAT', 'watchdog_file_log_format');
 define('WATCHDOG_FILE_DEFAULT_LOG_FORMAT', "[%date]\t[%severity]\t[%type]\t[uid=%uid]\t[%user]\t%message\turi=%uri\treferer=%referer\tlink=%link");
 
 
-/**
- * Implements hook_menu().
- */
-function watchdog_file_menu() {
-  $items = array();
-
-  $items['admin/config/system/watchdog-file'] = array(
-    'title'             => 'Watchdog File',
-    'description'       => 'Configuration for Watchdog File.',
-    'page callback'     => 'drupal_get_form',
-    'page arguments'    => array('watchdog_file_admin_settings'),
-    'access arguments'  => array('administer site configuration'),
-    'type'              => MENU_NORMAL_ITEM,
-    'file'              => 'watchdog_file.admin.inc',
-  );
-
-  return $items;
-}
-
 
  /**
   * Implements hook_watchdog().

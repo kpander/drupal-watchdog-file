@@ -1,0 +1,10 @@
+name = "Watchdog File UI"
+description = "Administrative settings for the Watchdog File module."
+package = "Performance and scalability"
+dependencies[] = watchdog_file
+
+core = 7.x
+
+version = "7.x-1.0"
+
+
