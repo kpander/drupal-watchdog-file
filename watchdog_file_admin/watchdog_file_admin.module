@@ -23,16 +23,15 @@ function watchdog_file_admin_menu() {
   return $items;
 }
 
-
 /**
  * Build the admin/settings form.
  */
 function watchdog_file_admin_settings() {
   $form = array();
 
-  # @todo provide a clearer intro message that makes it clear that
-  # 1. this file must be web-writable
-  # 2. this file must NOT be accessible *from* the website (security!)
+  // @todo provide a clearer intro message that makes it clear that
+  // 1. this file must be web-writable
+  // 2. this file must NOT be accessible *from* the website (security!)
   $form[WATCHDOG_FILE_VAR_FILENAME] = array(
     '#title'          => t("Full path/filename for the watchdog log file:"),
     '#type'           => 'textfield',
@@ -49,7 +48,7 @@ function watchdog_file_admin_settings() {
   );
 
 
-  # @todo need a better way of configuring this...
+  // @todo need a better way of configuring this...
   $form[WATCHDOG_FILE_VAR_LOG_FORMAT] = array(
     '#title'          => t("Format an individual log entries:"),
     '#type'           => 'textfield',
@@ -58,15 +57,11 @@ function watchdog_file_admin_settings() {
   );
 
 
-
-
-
   // Validate the form: ensure the path/filename is writable.
   $form['#validate'][] = 'watchdog_file_admin_settings_validate';
 
   return system_settings_form($form);
 }
-
 
 /**
  * Validate the admin/settings form.
@@ -79,5 +74,3 @@ function watchdog_file_admin_settings_validate(&$form, &$form_state) {
     form_set_error(WATCHDOG_FILE_VAR_FILENAME, t("The watchdog log filename cannot be written to. You'll need to change file permissions so the webserver is allowed to write to this file."));
   }
 }
-
-

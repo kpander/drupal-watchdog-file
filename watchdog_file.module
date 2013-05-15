@@ -25,12 +25,11 @@ define('WATCHDOG_FILE_VAR_LOG_FORMAT', 'watchdog_file_log_format');
 define('WATCHDOG_FILE_DEFAULT_LOG_FORMAT', "[%date]\t[%severity]\t[%type]\t[uid=%uid]\t[%user]\t%message\turi=%uri\treferer=%referer\tlink=%link");
 
 
-
- /**
-  * Implements hook_watchdog().
-  */
+/**
+ * Implements hook_watchdog().
+ */
 function watchdog_file_watchdog(array $log_entry) {
-  // Items to ignore...
+  // Items to ignore... @todo
   // @todo make this configurable
   if ($log_entry['type'] === 'expire') {
     if ($log_entry['severity'] === WATCHDOG_NOTICE) {
@@ -42,16 +41,15 @@ function watchdog_file_watchdog(array $log_entry) {
 }
 
 
-
 /**
  * Write a watchdog entry to the log file.
  */
-function watchdog_file_write_record($record) {
+function watchdog_file_write_record($log_entry) {
   $success = FALSE;
 
   $file = variable_get(WATCHDOG_FILE_VAR_FILENAME, '');
   if (watchdog_file_is_writable($file)) {
-    $data     = watchdog_file_render_record($record);
+    $data     = watchdog_file_render_record($log_entry);
     $success  = file_put_contents($file, $data . "\n", FILE_APPEND);
   }
 
@@ -64,8 +62,13 @@ function watchdog_file_write_record($record) {
 
 
 /**
- * Given a watchdog event record, format it for writing to the watchdog_file
- * log file.
+ * Given a watchdog event record, format it for writing to the log file.
+ *
+ * @param array $log_entry
+ *   An associative array representing a single watchdog event. 
+ *
+ * @return string
+ *   Returns the formatted log entry string.
  */
 function watchdog_file_render_record($log_entry) {
   $levels = watchdog_severity_levels();
@@ -101,9 +104,15 @@ function watchdog_file_render_record($log_entry) {
 }
 
 
-
 /**
  * Check if we're allowed to write to the log file.
+ *
+ * @param string $file
+ *   The full path/filename to check if it's writable.
+ *
+ * @return boolean
+ *   Returns TRUE if the given file is writable.
+ *   Returns FALSE if the given file is not writable.
  */
 function watchdog_file_is_writable($file) {
   // The defined log file doesn't exist yet. Try to create it.
@@ -115,5 +124,3 @@ function watchdog_file_is_writable($file) {
 
   return is_writable($file);
 }
-
-
