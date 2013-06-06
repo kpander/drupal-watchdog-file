@@ -32,11 +32,34 @@ function watchdog_file_admin_settings() {
   // @todo provide a clearer intro message that makes it clear that
   // 1. this file must be web-writable
   // 2. this file must NOT be accessible *from* the website (security!)
-  $form[WATCHDOG_FILE_VAR_FILENAME] = array(
+  // @todo add documentation for filename timestamp expansions e.g., %Y %m %d etc
+  //   see watchdog_file_expand_filename_vars()
+
+  $form['filename'] = array(
+    '#title'          => t("Log Filename"),
+    '#type'           => 'fieldset',
+    '#collapsible'    => TRUE,
+    '#collapsed'      => FALSE,
+  );
+  $form['filename'][WATCHDOG_FILE_VAR_FILENAME] = array(
     '#title'          => t("Full path/filename for the watchdog log file:"),
     '#type'           => 'textfield',
-    '#description'    => t("Provide an explicit path to a file that is writable by the webserver. This file should NOT be within the public_html folder! It should not be accessible from the website!<br><br>e.g., /var/log/apache/MYSITE-watchdog.log"),
+    '#description'    => t("Provide an explicit path to a file that is writable by the webserver. This file should NOT be within the public_html folder! It should not be accessible from the website!<br><br>e.g., <code>/var/log/apache/MYSITE-watchdog.log</code>"),
     '#default_value'  => variable_get(WATCHDOG_FILE_VAR_FILENAME, ''),
+  );
+  $help = '<p>' . t("To allow for more flexible filenames, the log filename can include the following dynamic variables.") . '</p>';
+  $headers = array(t('Variable'), t('Description'));
+  $rows = array();
+  $rows[] = array('%d', t("Day of the month e.g., 01 to 31"));
+  $rows[] = array('%w', t("Day of the week e.g., 0 (Sunday) to 6 (Saturday)"));
+  $rows[] = array('%z', t("Day of the year e.g., 0 to 365"));
+  $rows[] = array('%m', t("Month number e.g., 01 (January) to 12"));
+  $rows[] = array('%Y', t("Year e.g., 1999"));
+  $help .= theme('table', array('header' => $headers, 'rows' => $rows));
+  $help .= '<p>e.g., a log filename of <code>watchdog-file.%Y-%m-%d.log</code> would become <code>watchdog-file.' . date('Y-m-d') . '.log</code></p>';
+  $form['filename']['help'] = array(
+    '#type'           => 'markup',
+    '#markup'         => $help,
   );
 
 
@@ -67,10 +90,11 @@ function watchdog_file_admin_settings() {
  * Validate the admin/settings form.
  */
 function watchdog_file_admin_settings_validate(&$form, &$form_state) {
-  $values = $form_state['values'];
+  $file = $form_state['values'][WATCHDOG_FILE_VAR_FILENAME];
+  $file = watchdog_file_expand_filename_vars($file);
 
   // Ensure the watchdog path/filename given is writable by the webserver.
-  if (!watchdog_file_is_writable($values[WATCHDOG_FILE_VAR_FILENAME])) {
+  if (!watchdog_file_is_writable($file)) {
     form_set_error(WATCHDOG_FILE_VAR_FILENAME, t("The watchdog log filename cannot be written to. You'll need to change file permissions so the webserver is allowed to write to this file."));
   }
 }

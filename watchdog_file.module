@@ -47,7 +47,7 @@ function watchdog_file_watchdog(array $log_entry) {
 function watchdog_file_write_record($log_entry) {
   $success = FALSE;
 
-  $file = variable_get(WATCHDOG_FILE_VAR_FILENAME, '');
+  $file = watchdog_file_get_log_filename();
   if (watchdog_file_is_writable($file)) {
     $data     = watchdog_file_render_record($log_entry);
     $success  = file_put_contents($file, $data . "\n", FILE_APPEND);
@@ -90,7 +90,7 @@ function watchdog_file_render_record($log_entry) {
     '%message'  => strip_tags(t($log_entry['message'], $message_vars)),
     '%uri'      => $log_entry['request_uri'],
     '%referer'  => $log_entry['referer'],
-    '%link'     => $log_entry['link'],
+    '%link'     => strip_tags($log_entry['link']),
   );
 
   $template = variable_get(WATCHDOG_FILE_VAR_LOG_FORMAT, WATCHDOG_FILE_DEFAULT_LOG_FORMAT);
@@ -123,4 +123,35 @@ function watchdog_file_is_writable($file) {
   }
 
   return is_writable($file);
+}
+
+
+/**
+ * Get the watchdog log filename.
+ *
+ * @return string
+ */
+function watchdog_file_get_log_filename() {
+  $file = variable_get(WATCHDOG_FILE_VAR_FILENAME, '');
+  return watchdog_file_expand_filename_vars($file);
+}
+
+/**
+ * Expand any timestamp variables in the log file filename.
+ *
+ * @param string $file
+ *   The raw log filename, without timestamp variables (if any) expanded.
+ *
+ * @return string
+ */
+function watchdog_file_expand_filename_vars($file) {
+  $replacements = array(
+    '%d'  => date('d', REQUEST_TIME), // day of month, 01 to 31
+    '%w'  => date('w', REQUEST_TIME), // day of week, 0 (Sun) to 6 (Sat)
+    '%z'  => date('z', REQUEST_TIME), // day of year, 0 to 365
+    '%m'  => date('m', REQUEST_TIME), // month, 01 to 12
+    '%Y'  => date('Y', REQUEST_TIME), // year, e.g. 1999
+  );
+
+  return strtr($file, $replacements);
 }
