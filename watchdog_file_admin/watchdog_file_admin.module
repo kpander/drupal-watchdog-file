@@ -29,12 +29,22 @@ function watchdog_file_admin_menu() {
 function watchdog_file_admin_settings() {
   $form = array();
 
-  // @todo provide a clearer intro message that makes it clear that
-  // 1. this file must be web-writable
-  // 2. this file must NOT be accessible *from* the website (security!)
-  // @todo add documentation for filename timestamp expansions e.g., %Y %m %d etc
-  //   see watchdog_file_expand_filename_vars()
+  watchdog_file_admin_settings_filename($form);
+  watchdog_file_admin_settings_date_format($form);
+  watchdog_file_admin_settings_row_format($form);
+  watchdog_file_admin_settings_inclusions($form);
+  watchdog_file_admin_settings_exclusions($form);
 
+  // Validate the form: ensure the path/filename is writable.
+  $form['#validate'][] = 'watchdog_file_admin_settings_validate';
+
+  return system_settings_form($form);
+}
+
+/**
+ * Add form elements for specifying the log filename.
+ */
+function watchdog_file_admin_settings_filename(&$form) {
   $form['filename'] = array(
     '#title'          => t("Log Filename"),
     '#type'           => 'fieldset',
@@ -44,7 +54,7 @@ function watchdog_file_admin_settings() {
   $form['filename'][WATCHDOG_FILE_VAR_FILENAME] = array(
     '#title'          => t("Full path/filename for the watchdog log file:"),
     '#type'           => 'textfield',
-    '#description'    => t("Provide an explicit path to a file that is writable by the webserver. This file should NOT be within the public_html folder! It should not be accessible from the website!<br><br>e.g., <code>/var/log/apache/MYSITE-watchdog.log</code>"),
+    '#description'    => t("Provide an explicit path to a file that is writable by the webserver. <strong>This file should NOT be within the public_html folder! It should not be accessible from the website!</strong><br><br>e.g., <code>/var/log/apache/MYSITE-watchdog.log</code>"),
     '#default_value'  => variable_get(WATCHDOG_FILE_VAR_FILENAME, ''),
   );
   $help = '<p>' . t("To allow for more flexible filenames, the log filename can include the following dynamic variables.") . '</p>';
@@ -61,30 +71,110 @@ function watchdog_file_admin_settings() {
     '#type'           => 'markup',
     '#markup'         => $help,
   );
+}
 
+/**
+ * Add form elements for specifying the date format.
+ */
+function watchdog_file_admin_settings_date_format(&$form) {
+  $form['dateformat'] = array(
+    '#title'          => t("Date/time Format"),
+    '#type'           => 'fieldset',
+    '#collapsible'    => TRUE,
+    '#collapsed'      => TRUE,
+  );
 
-  $form[WATCHDOG_FILE_VAR_DATE_FORMAT] = array(
+  $default = variable_get(WATCHDOG_FILE_VAR_DATE_FORMAT, WATCHDOG_FILE_DEFAULT_DATE_FORMAT);
+  $form['dateformat'][WATCHDOG_FILE_VAR_DATE_FORMAT] = array(
     '#title'          => t("Date/time format for log entries:"),
     '#type'           => 'textfield',
-    '#description'    => t("Enter the formatting string for PHP's date() function. This will be used for the timestamp on all log entries."),
-    '#default_value'  => variable_get(WATCHDOG_FILE_VAR_DATE_FORMAT, WATCHDOG_FILE_DEFAULT_DATE_FORMAT),
+    '#description'    => t("Enter the formatting string for PHP's date() function. This will be used for the timestamp on all log entries.") . '<br>' . "e.g., {$default} = " . date($default),
+    '#default_value'  => $default,
+  );
+}
+
+/**
+ * Add form elements for specifying format of individual log entries.
+ */
+function watchdog_file_admin_settings_row_format(&$form) {
+  $form['logformat'] = array(
+    '#title'          => t("Format for individual log entries"),
+    '#type'           => 'fieldset',
+    '#collapsible'    => TRUE,
+    '#collapsed'      => TRUE,
   );
 
 
   // @todo need a better way of configuring this...
-  $form[WATCHDOG_FILE_VAR_LOG_FORMAT] = array(
-    '#title'          => t("Format an individual log entries:"),
-    '#type'           => 'textfield',
-    '#description'    => t("@todo define available variables with examples"),
+  $form['logformat'][WATCHDOG_FILE_VAR_LOG_FORMAT] = array(
+    '#title'          => t("Format for individual log entries:"),
+    '#type'           => 'textarea',
     '#default_value'  => variable_get(WATCHDOG_FILE_VAR_LOG_FORMAT, WATCHDOG_FILE_DEFAULT_LOG_FORMAT),
   );
 
 
-  // Validate the form: ensure the path/filename is writable.
-  $form['#validate'][] = 'watchdog_file_admin_settings_validate';
+  $headers = array(t('Variable'), t('Description'));
+  $rows = array();
+  $rows[] = array('%date', t("Date/time of the entry"));
+  $rows[] = array('%severity', t("Severity, one of:") . theme('item_list', array('items' => watchdog_severity_levels())));
+  $rows[] = array('%type', t("Origin of the entry e.g., php, cron, system, boost, etc. This is often a module name."));
+  $rows[] = array('%uid', t("User id (uid) of the user that caused the event"));
+  $rows[] = array('%user', t('Username and ip address e.g., "<code>anon 127.0.0.1</code>" or "<code>admin 66.12.51.22</code>"'));
+  $rows[] = array('%message', t("The entry message"));
+  $rows[] = array('%uri', t("The url of the page where the event occurred"));
+  $rows[] = array('%referer', 'UNSURE IF EVER USED');
+  $rows[] = array('%link', 'UNSURE IF EVER USED');
 
-  return system_settings_form($form);
+  $help = theme('table', array('header' => $headers, 'rows' => $rows));
+
+  $form['logformat']['help'] = array(
+    '#type'   => 'markup',
+    '#markup' => $help,
+  );
 }
+
+
+/**
+ * Add form elements for defining which event severity items to log.
+ */
+function watchdog_file_admin_settings_inclusions(&$form) {
+  $form['inclusions'] = array(
+    '#title'          => t("Inclusions"),
+    '#type'           => 'fieldset',
+    '#collapsible'    => TRUE,
+    '#collapsed'      => TRUE,
+  );
+
+  $levels = watchdog_severity_levels();
+  $form['inclusions'][WATCHDOG_FILE_VAR_INCLUDE_SEVERITY] = array(
+    '#title'    => t("Define the event severity types to log"),
+    '#type'     => 'checkboxes',
+    '#options'  => $levels,
+    '#default_value' => variable_get(WATCHDOG_FILE_VAR_INCLUDE_SEVERITY, explode(',', WATCHDOG_FILE_DEFAULT_INCLUDE_SEVERITY)),
+  );
+}
+
+/**
+ * Add form elements for defining keywords by which to exclude log entries.
+ */
+function watchdog_file_admin_settings_exclusions(&$form) {
+  $form['exclusions'] = array(
+    '#title'          => t("Exclusions"),
+    '#type'           => 'fieldset',
+    '#collapsible'    => TRUE,
+    '#collapsed'      => TRUE,
+  );
+
+  $form['exclusions'][WATCHDOG_FILE_VAR_EXCLUDE_KEYWORDS] = array(
+    '#title'          => t("Define keywords for excluding log events"),
+    '#description'    => t("One string per line.") . '<br><br>' . t("If a string is found in the rendered log entry, it will NOT be logged."),
+    '#type'           => 'textarea',
+    '#default_value' => variable_get(WATCHDOG_FILE_VAR_EXCLUDE_KEYWORDS, ''),
+  );
+}
+
+
+
 
 /**
  * Validate the admin/settings form.

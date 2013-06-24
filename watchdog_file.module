@@ -24,20 +24,64 @@ define('WATCHDOG_FILE_DEFAULT_DATE_FORMAT', 'Y-m-d H:i:s');
 define('WATCHDOG_FILE_VAR_LOG_FORMAT', 'watchdog_file_log_format');
 define('WATCHDOG_FILE_DEFAULT_LOG_FORMAT', "[%date]\t[%severity]\t[%type]\t[uid=%uid]\t[%user]\t%message\turi=%uri\treferer=%referer\tlink=%link");
 
+/**
+ * Define the variable for storing which event severity types to log.
+ */
+define('WATCHDOG_FILE_VAR_INCLUDE_SEVERITY', 'watchdog_file_include_severity');
+define('WATCHDOG_FILE_DEFAULT_INCLUDE_SEVERITY', "0,1,2,3,4,5,6");
+
+/**
+ * Define the variable for storing which event to ignore.
+ */
+define('WATCHDOG_FILE_VAR_EXCLUDE_KEYWORDS', 'watchdog_file_exclude_keywords');
+define('WATCHDOG_FILE_DEFAULT_EXCLUDE_KEYWORDS', "");
+
 
 /**
  * Implements hook_watchdog().
  */
 function watchdog_file_watchdog(array $log_entry) {
-  // Items to ignore... @todo
-  // @todo make this configurable
-  if ($log_entry['type'] === 'expire') {
-    if ($log_entry['severity'] === WATCHDOG_NOTICE) {
-      return;
-    }
+  if (!watchdog_file_should_log_severity($log_entry)) {
+    // We've been configured to ignore entries of this severity.
+    return;
   }
 
   watchdog_file_write_record($log_entry);
+}
+
+
+/**
+ * Determine if this particular log entry should be logged or ignored.
+ */
+function watchdog_file_should_log_severity($log_entry) {
+  // Get the severity types we handle.
+  $items = variable_get(WATCHDOG_FILE_VAR_INCLUDE_SEVERITY, explode(',', WATCHDOG_FILE_DEFAULT_INCLUDE_SEVERITY));
+  if (!in_array($log_entry['severity'], $items)) {
+    return FALSE;
+  }
+
+  return TRUE;
+}
+
+/**
+ * Determine if this rendered log entry should be logged or excluded.
+ */
+function watchdog_file_should_log($line) {
+  $keywords = variable_get(WATCHDOG_FILE_VAR_EXCLUDE_KEYWORDS, '');
+  $keywords = explode("\n", $keywords);
+
+  foreach ($keywords as $keyword) {
+    $keyword = trim($keyword);
+    if (empty($keyword)) {
+      continue;
+    }
+
+    if (strpos($line, $keyword) !== FALSE) {
+      return FALSE;
+    }
+  }
+
+  return TRUE;
 }
 
 
@@ -49,8 +93,13 @@ function watchdog_file_write_record($log_entry) {
 
   $file = watchdog_file_get_log_filename();
   if (watchdog_file_is_writable($file)) {
-    $data     = watchdog_file_render_record($log_entry);
-    $success  = file_put_contents($file, $data . "\n", FILE_APPEND);
+    $data = watchdog_file_render_record($log_entry);
+    if (watchdog_file_should_log($data)) {
+      $success = file_put_contents($file, $data . "\n", FILE_APPEND);
+    }
+    else {
+      return TRUE;
+    }
   }
 
   if ($success === FALSE) {

@@ -38,3 +38,5 @@ v1.0, 2013-05-01
 TODO
 ====
 - make it a lot more configurable in general
+- add ability to exclude logging of events based on severity, keyword, module,
+  etc.
