@@ -13,6 +13,8 @@ WHY USE THIS MODULE?
 
 HOW IT WORKS
 ============
+- Drupal-independent class: WatchdogFile()
+- meaning, this can be reused elsewhere
 
 INSTALLATION
 ============
@@ -31,12 +33,9 @@ http://invisiblethreads.com
 
 CHANGELOG
 =========
-v1.0, 2013-05-01
+v1.0, 2013-03-22
 - initial development
 
 
 TODO
 ====
-- make it a lot more configurable in general
-- add ability to exclude logging of events based on severity, keyword, module,
-  etc.
