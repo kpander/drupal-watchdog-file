@@ -4,6 +4,9 @@
  * Write Watchdog events to a local file.
  *
  * This is a replacement for the dblog module, for performance-sensitive sites.
+ *
+ * History:
+ * 2013-03-24, Kendall Anderson: Initial design/development
  */
 
 
@@ -26,6 +29,10 @@ define('WATCHDOG_FILE_DEFAULT_LOG_FORMAT', "[%date]\t[%severity]\t[%type]\t[uid=
 
 /**
  * Define the variable for storing which event severity types to log.
+ *
+ * The default value (0,1,2,3,4,5,6) indicates recording all severity levels
+ * *except* for the 'debug' level. The values correspond to the keys returned
+ * by watchdog_severity_levels().
  */
 define('WATCHDOG_FILE_VAR_INCLUDE_SEVERITY', 'watchdog_file_include_severity');
 define('WATCHDOG_FILE_DEFAULT_INCLUDE_SEVERITY', "0,1,2,3,4,5,6");
@@ -41,139 +48,35 @@ define('WATCHDOG_FILE_DEFAULT_EXCLUDE_KEYWORDS', "");
  * Implements hook_watchdog().
  */
 function watchdog_file_watchdog(array $log_entry) {
-  if (!watchdog_file_should_log_severity($log_entry)) {
-    // We've been configured to ignore entries of this severity.
-    return;
-  }
-
-  watchdog_file_write_record($log_entry);
-}
-
-
-/**
- * Determine if this particular log entry should be logged or ignored.
- */
-function watchdog_file_should_log_severity($log_entry) {
-  // Get the severity types we handle.
-  $items = variable_get(WATCHDOG_FILE_VAR_INCLUDE_SEVERITY, explode(',', WATCHDOG_FILE_DEFAULT_INCLUDE_SEVERITY));
-  if (!in_array($log_entry['severity'], $items)) {
-    return FALSE;
-  }
-
-  return TRUE;
+  $log = new WatchdogFile(watchdog_file_get_configuration());
+  $log->log($log_entry);
 }
 
 /**
- * Determine if this rendered log entry should be logged or excluded.
+ * Get the logging configuration.
+ * 
+ * @return associative array
  */
-function watchdog_file_should_log($line) {
-  $keywords = variable_get(WATCHDOG_FILE_VAR_EXCLUDE_KEYWORDS, '');
-  $keywords = explode("\n", $keywords);
-
-  foreach ($keywords as $keyword) {
-    $keyword = trim($keyword);
-    if (empty($keyword)) {
-      continue;
-    }
-
-    if (strpos($line, $keyword) !== FALSE) {
-      return FALSE;
-    }
+function watchdog_file_get_configuration() {
+  $includes = variable_get(WATCHDOG_FILE_VAR_INCLUDE_SEVERITY, WATCHDOG_FILE_DEFAULT_INCLUDE_SEVERITY);
+  if (!is_array($includes)) {
+    $includes = (empty($includes)) ? array() : explode(',', $includes);
   }
 
-  return TRUE;
-}
+  $excludes = trim(variable_get(WATCHDOG_FILE_VAR_EXCLUDE_KEYWORDS, WATCHDOG_FILE_DEFAULT_EXCLUDE_KEYWORDS));
+  $excludes = explode("\n", $excludes);
 
-
-/**
- * Write a watchdog entry to the log file.
- */
-function watchdog_file_write_record($log_entry) {
-  $success = FALSE;
-
-  $file = watchdog_file_get_log_filename();
-  if (watchdog_file_is_writable($file)) {
-    $data = watchdog_file_render_record($log_entry);
-    if (watchdog_file_should_log($data)) {
-      $success = file_put_contents($file, $data . "\n", FILE_APPEND);
-    }
-    else {
-      return TRUE;
-    }
-  }
-
-  if ($success === FALSE) {
-    drupal_set_message(t("Error writing to watchdog_file log."), 'error');
-  }
-
-  return $success;
-}
-
-
-/**
- * Given a watchdog event record, format it for writing to the log file.
- *
- * @param array $log_entry
- *   An associative array representing a single watchdog event. 
- *
- * @return string
- *   Returns the formatted log entry string.
- */
-function watchdog_file_render_record($log_entry) {
-  $levels = watchdog_severity_levels();
-
-  $user  = (isset($log_entry['uid']) && (int) $log_entry['uid'] > 0) ? $log_entry['user']->name : 'anon';
-  $user .= ' ' . $log_entry['ip'];
-
-  $message_vars = $log_entry['variables'];
-  if (!is_array($message_vars)) {
-    $message_vars = array();
-  };
-
-  $vars = array(
-    '%date'     => date(variable_get(WATCHDOG_FILE_VAR_DATE_FORMAT, WATCHDOG_FILE_DEFAULT_DATE_FORMAT), $log_entry['timestamp']),
-    '%severity' => $levels[$log_entry['severity']],
-    '%type'     => $log_entry['type'],
-    '%uid'      => $log_entry['uid'],
-    '%user'     => $user,
-    '%message'  => strip_tags(t($log_entry['message'], $message_vars)),
-    '%uri'      => $log_entry['request_uri'],
-    '%referer'  => $log_entry['referer'],
-    '%link'     => strip_tags($log_entry['link']),
+  $config = array(
+    'log_filename'  => watchdog_file_get_log_filename(),
+    'log_format'    => variable_get(WATCHDOG_FILE_VAR_LOG_FORMAT, WATCHDOG_FILE_DEFAULT_LOG_FORMAT),
+    'date_format'   => variable_get(WATCHDOG_FILE_VAR_DATE_FORMAT, WATCHDOG_FILE_DEFAULT_DATE_FORMAT),
+    'includes'      => $includes,
+    'excludes'      => $excludes,
+    'levels'        => watchdog_severity_levels(),
   );
 
-  $template = variable_get(WATCHDOG_FILE_VAR_LOG_FORMAT, WATCHDOG_FILE_DEFAULT_LOG_FORMAT);
-  $data     = strtr($template, $vars);
-
-  // Replace some encoded entities for readability.
-  $data = str_replace('&gt;', '>', $data);
-  $data = str_replace('&lt;', '<', $data);
-
-  return $data;
+  return $config;
 }
-
-
-/**
- * Check if we're allowed to write to the log file.
- *
- * @param string $file
- *   The full path/filename to check if it's writable.
- *
- * @return boolean
- *   Returns TRUE if the given file is writable.
- *   Returns FALSE if the given file is not writable.
- */
-function watchdog_file_is_writable($file) {
-  // The defined log file doesn't exist yet. Try to create it.
-  if (!file_exists($file)) {
-    if (!touch($file)) {
-      return FALSE;
-    }
-  }
-
-  return is_writable($file);
-}
-
 
 /**
  * Get the watchdog log filename.
