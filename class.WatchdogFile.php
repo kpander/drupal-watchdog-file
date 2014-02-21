@@ -8,6 +8,7 @@
  * History:
  * 2013-03-24, Kendall Anderson: Initial design/development
  * 2013-06-23, Kendall Anderson: Refactored into generic class
+ * 2014-02-21, Kendall Anderson: Removed final Drupal dependency
  */
 
 class WatchdogFile {
@@ -197,9 +198,6 @@ class WatchdogFile {
 
   /**
    * Construct value of the '%message' variable.
-   *
-   * @todo probably want to replace the use of t() here with strtr() as the
-   * intent is to remove any knowledge/dependency on Drupal
    */
   private function getFieldMessage() {
     $vars = $this->rawLogEntry['variables'];
@@ -207,7 +205,7 @@ class WatchdogFile {
       $vars = array();
     };
     
-    return strip_tags(t($this->rawLogEntry['message'], $vars));
+    return strip_tags(strtr($this->rawLogEntry['message'], $vars));
   }
 
   /**

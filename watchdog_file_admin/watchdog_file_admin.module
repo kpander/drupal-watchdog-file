@@ -113,11 +113,13 @@ function watchdog_file_admin_settings_row_format(&$form) {
   );
 
 
-  // @todo need a better way of configuring this...
+  $default = variable_get(WATCHDOG_FILE_VAR_LOG_FORMAT, WATCHDOG_FILE_DEFAULT_LOG_FORMAT);
+  $default = str_replace("\t", '\t', $default);
+
   $form[$fs][WATCHDOG_FILE_VAR_LOG_FORMAT] = array(
     '#title'          => t("Format for individual log entries:"),
     '#type'           => 'textarea',
-    '#default_value'  => variable_get(WATCHDOG_FILE_VAR_LOG_FORMAT, WATCHDOG_FILE_DEFAULT_LOG_FORMAT),
+    '#default_value'  => $default,
   );
 
 
@@ -132,6 +134,7 @@ function watchdog_file_admin_settings_row_format(&$form) {
   $rows[] = array('%uri', t("The url of the page where the event occurred"));
   $rows[] = array('%referer', 'UNSURE IF EVER USED');
   $rows[] = array('%link', 'UNSURE IF EVER USED');
+  $rows[] = array('\t', 'Insert a TAB character');
 
   $help = theme('table', array('header' => $headers, 'rows' => $rows));
 

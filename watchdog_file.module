@@ -75,6 +75,8 @@ function watchdog_file_get_configuration() {
     'levels'        => watchdog_severity_levels(),
   );
 
+  $config['log_format'] = str_replace('\t', "\t", $config['log_format']);
+
   return $config;
 }
 
@@ -102,7 +104,7 @@ function watchdog_file_expand_filename_vars($file) {
     '%w'  => date('w', REQUEST_TIME), // day of week, 0 (Sun) to 6 (Sat)
     '%z'  => date('z', REQUEST_TIME), // day of year, 0 to 365
     '%m'  => date('m', REQUEST_TIME), // month, 01 to 12
-    '%Y'  => date('Y', REQUEST_TIME), // year, e.g. 1999
+    '%Y'  => date('Y', REQUEST_TIME), // year, e.g. 2014
   );
 
   return strtr($file, $replacements);
